@@ -7,6 +7,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     define: {
+      // 允许代码中使用 process.env.API_KEY，将其映射到 VITE_GEMINI_API_KEY
       'process.env.API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY || '')
     },
     server: {

@@ -8,6 +8,8 @@ import { ViewState } from './types';
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.COPILOT);
 
+  console.log("Rendering App view:", currentView);
+
   return (
     <Layout currentView={currentView} onChangeView={setCurrentView}>
       {currentView === ViewState.COPILOT && <Copilot />}
