@@ -8,13 +8,22 @@ const container = document.getElementById('root');
 
 if (container) {
   const root = ReactDOM.createRoot(container);
-  // React 接管后，loader 会自动被替换
+  
+  // 渲染应用
   root.render(
     <React.StrictMode>
       <App />
     </React.StrictMode>
   );
-  console.log("%c ✅ [AUDI CORE] UI Engine mounted and running ", "color: #10b981; font-weight: bold;");
-} else {
-  console.error("❌ [AUDI CORE] CRITICAL ERROR: Mount point #root missing");
-}
+
+  // 渲染完成后移除加载动画（如果有的话）
+  const loader = document.getElementById('initial-loader');
+  if (loader) {
+    setTimeout(() => {
+      loader.style.opacity = '0';
+      loader.style.transition = 'opacity 0.5s ease';
+      setTimeout(() => loader.remove(), 500);
+    }, 300);
+  }
+
+  console.log("%c ✅ [AUDI CORE] UI Engine mounted and running ", "color: #10b981; font-weight:
