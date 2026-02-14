@@ -1,0 +1,5 @@
+{
+  "name": "Audi DCC Copilot",
+  "description": "A behavioral forensics and sales auxiliary tool for the Audi E5 Sportback launch. Features Manual Trigger Copilot, AI Dojo training, and Shadow System analytics.",
+  "requestFramePermissions": []
+}
