@@ -1,15 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Layout from './components/Layout';
 import Copilot from './components/Copilot';
+import AIDojo from './components/AIDojo';
+import Dashboard from './components/Dashboard';
 import { ViewState } from './types';
 
 const App: React.FC = () => {
-  // Hardcoded to Copilot for focused development
-  const currentView = ViewState.COPILOT;
+  const [currentView, setCurrentView] = useState<ViewState>(ViewState.COPILOT);
 
   return (
-    <Layout currentView={currentView} onChangeView={() => {}}>
-      <Copilot />
+    <Layout currentView={currentView} onChangeView={setCurrentView}>
+      {currentView === ViewState.COPILOT && <Copilot />}
+      {currentView === ViewState.DOJO && <AIDojo />}
+      {currentView === ViewState.DASHBOARD && <Dashboard />}
     </Layout>
   );
 };

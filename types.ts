@@ -1,5 +1,7 @@
 export enum ViewState {
   COPILOT = 'COPILOT',
+  DOJO = 'DOJO',
+  DASHBOARD = 'DASHBOARD'
 }
 
 // 话术流的阶段定义
@@ -30,8 +32,6 @@ export interface CallStageConfig {
   colorTheme: string; // Tailwind class for background/border
   items: ScriptButton[] | NeedQuestion[]; // Can be scripts or profiling questions
 }
-
-// --- Keeping previous types for compatibility or reuse ---
 
 export interface NeedOption {
   label: string;
