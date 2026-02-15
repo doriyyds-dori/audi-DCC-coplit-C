@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { CALL_FLOW_CONFIG, CAR_SERIES, QUICK_RESPONSES, ABNORMAL_SCENARIOS, CallOutcome } from '../constants';
-import { CallStage, ScriptButton, QuickCategory, CallStageConfig, NeedQuestion } from '../types';
+import { CALL_FLOW_CONFIG, CAR_SERIES, ABNORMAL_SCENARIOS, CallOutcome } from '../constants';
+import { CallStage, ScriptButton, QuickCategory, NeedQuestion } from '../types';
 import { generateSummaryEnhancement } from '../services/geminiService';
 import { 
   Phone, User, RotateCcw, MessageCircle, 
@@ -20,9 +20,8 @@ const Copilot: React.FC = () => {
   const [gender, setGender] = useState<'先生'|'女士'|'未知'>('先生');
   const [series, setSeries] = useState('');
   const [needs, setNeeds] = useState<Record<string, string>>({});
-  const [activeScript, setActiveScript] = useState<string>('👋 准备就绪...');
+  const [activeScript, setActiveScript] = useState<string>('👋 已连接，等待拨号指令...');
   const [logs, setLogs] = useState<string>('');
-  const [quickTab, setQuickTab] = useState<QuickCategory>('PRICE');
   const [isGenerating, setIsGenerating] = useState(false);
   const [amsResult, setAmsResult] = useState<{profile: string, record: string, plan: string} | null>(null);
   const [viewMode, setViewMode] = useState<'LOG' | 'AMS'>('LOG');
@@ -38,13 +37,9 @@ const Copilot: React.FC = () => {
   };
 
   const handleQuickExit = (scen: typeof ABNORMAL_SCENARIOS[0]) => {
-    addLog(`[异常结案快速标记] ${scen.log}`);
+    addLog(`[结案记录] ${scen.log}`);
     setOutcome('NONE');
-    setActiveScript(`⚠️ 通话异常结束：${scen.label}`);
-    // 视觉反馈，提示专员可以点击生成记录了
-    if (viewMode === 'LOG') {
-      setTimeout(() => alert(`已记录：${scen.label}。您可以直接点击右下角生成记录。`), 200);
-    }
+    setActiveScript(`⚠️ ${scen.label}`);
   };
 
   const copyToClipboard = async (text: string, id: string) => {
@@ -52,71 +47,61 @@ const Copilot: React.FC = () => {
       await navigator.clipboard.writeText(text);
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 2000);
-    } catch (err) {
-      console.error('Copy failed');
-    }
+    } catch (err) { console.error('Copy failed'); }
   };
 
   const handleGenerateAMS = async () => {
-    if (!logs.trim()) { alert('当前没有操作轨迹，请先进行话术或异常点击'); return; }
-    if (!phone.trim()) { alert('请输入客户电话以便存档'); return; }
-
+    if (!logs.trim()) { alert('当前没有操作轨迹'); return; }
+    if (!phone.trim()) { alert('请输入客户电话'); return; }
     setIsGenerating(true);
     try {
-      const result = await generateSummaryEnhancement({ 
-        phone, name, gender, series, needs, logs, outcome 
-      });
+      const result = await generateSummaryEnhancement({ phone, name, gender, series, needs, logs, outcome });
       setAmsResult(result);
       setViewMode('AMS');
-      addLog(`[系统记录生成] 结果判定：${outcome === 'APPOINTED' ? '已约进店' : '未定/异常'}`);
-    } catch (err) {
-      alert('生成记录时遇到问题，请稍后重试');
-    } finally {
-      setIsGenerating(false);
-    }
+    } catch (err) { alert('生成失败'); } finally { setIsGenerating(false); }
   };
 
   return (
-    <div className="h-[calc(100vh-80px)] flex gap-4 p-4 overflow-hidden bg-slate-50 font-sans">
+    <div className="h-[calc(100vh-48px)] flex gap-4 p-4 overflow-hidden bg-[#F5F4F8] text-[#3F3F46]">
       
       {/* 左侧：话术流 & 异常处理 */}
       <div className="flex-1 flex flex-col gap-4 overflow-hidden">
         
-        {/* 顶部：客户基础资料 */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm border-2 border-slate-200 flex items-center gap-4 shrink-0">
-          <div className="flex items-center gap-2 bg-slate-100 px-3 py-2 rounded-xl flex-1 max-w-[120px]">
-            <User size={18} className="text-slate-400" />
-            <input className="bg-transparent w-full outline-none font-bold text-slate-800" placeholder="姓氏" value={name} onChange={e => setName(e.target.value)} />
+        {/* 1. 基础资料 - 纯白卡片 */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#E4E4E7] flex items-center gap-4 shrink-0">
+          <div className="flex items-center gap-2 bg-[#F4F4F5] px-3 py-2 rounded-xl flex-1 max-w-[120px]">
+            <User size={16} className="text-[#A1A1AA]" />
+            <input className="bg-transparent w-full outline-none font-bold text-[#3F3F46]" placeholder="姓氏" value={name} onChange={e => setName(e.target.value)} />
           </div>
-          <div className="flex gap-1">
+          <div className="flex gap-1 p-1 bg-[#F4F4F5] rounded-xl">
              {['先生', '女士'].map((g: any) => (
-               <button key={g} onClick={() => setGender(g)} className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${gender === g ? 'bg-zinc-800 text-white shadow-md' : 'bg-slate-100 text-slate-400'}`}>{g}</button>
+               <button key={g} onClick={() => setGender(g)} className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${gender === g ? 'bg-white text-[#3F3F46] shadow-sm' : 'text-[#A1A1AA]'}`}>{g}</button>
              ))}
           </div>
-          <div className="flex items-center gap-2 bg-slate-100 px-3 py-2 rounded-xl flex-1">
-            <Phone size={18} className="text-slate-400" />
-            <input className="bg-transparent w-full outline-none font-mono font-bold text-slate-800" placeholder="电话..." value={phone} onChange={e => setPhone(e.target.value)} />
+          <div className="flex items-center gap-2 bg-[#F4F4F5] px-3 py-2 rounded-xl flex-1">
+            <Phone size={16} className="text-[#A1A1AA]" />
+            <input className="bg-transparent w-full outline-none font-mono font-bold text-[#3F3F46]" placeholder="电话..." value={phone} onChange={e => setPhone(e.target.value)} />
           </div>
-          <select value={series} onChange={e => setSeries(e.target.value)} className="bg-amber-100 text-amber-900 font-bold px-4 py-2 rounded-xl outline-none cursor-pointer">
+          <select value={series} onChange={e => setSeries(e.target.value)} className="bg-purple-50 text-purple-700 font-bold px-4 py-2 rounded-xl outline-none border border-purple-100">
             <option value="">咨询车型 ▾</option>
             {CAR_SERIES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
 
-        {/* 核心：异常结案区 (紧邻开场，适配现实拨打) */}
-        <div className="bg-red-50 p-4 rounded-3xl border-2 border-red-100 shadow-sm flex flex-col gap-3 shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="text-[10px] font-black text-red-800 uppercase flex items-center gap-1.5 tracking-wider">
-               <AlertCircle size={14} /> 现实结案快捷键 (出现异常立即点击)
+        {/* 2. 异常快速结案 - 明快状态色 */}
+        <div className="bg-[#FEF2F2] p-4 rounded-2xl border border-[#FEE2E2] shadow-sm flex flex-col gap-3 shrink-0">
+          <div className="flex items-center justify-between px-1">
+            <div className="text-[10px] font-black text-[#EF4444] uppercase flex items-center gap-1.5 tracking-widest">
+               <AlertCircle size={14} /> 拨打异常反馈
             </div>
-            <span className="text-[10px] text-red-300 italic">点击后自动结案并记录日志</span>
+            <span className="text-[9px] text-[#FDA4AF] italic font-medium">点击后自动记录并结案</span>
           </div>
           <div className="grid grid-cols-4 gap-3">
             {ABNORMAL_SCENARIOS.map(scen => (
               <button 
                 key={scen.id} 
                 onClick={() => handleQuickExit(scen)} 
-                className="bg-white border-2 border-red-50 py-3 rounded-2xl text-xs font-black text-red-600 hover:bg-red-600 hover:text-white transition-all flex items-center justify-center gap-2 shadow-sm active:scale-95"
+                className="bg-white border border-[#FEE2E2] py-2.5 rounded-xl text-xs font-bold text-[#DC2626] hover:bg-[#EF4444] hover:text-white transition-all flex items-center justify-center gap-2 shadow-sm active:scale-95"
               >
                 <UserX size={14} /> {scen.label}
               </button>
@@ -124,34 +109,36 @@ const Copilot: React.FC = () => {
           </div>
         </div>
 
-        {/* 话术流主列表 */}
-        <div className="flex-1 overflow-y-auto pr-2 space-y-6 pb-10 custom-scrollbar">
+        {/* 3. 话术流主列表 */}
+        <div className="flex-1 overflow-y-auto pr-2 space-y-4 pb-10 custom-scrollbar">
           {CALL_FLOW_CONFIG.map((stage) => (
-            <div key={stage.stage} className={`rounded-3xl border-2 bg-white shadow-sm overflow-hidden ${stage.colorTheme.replace('text-', 'border-').split(' ')[1]}`}>
-              <div className={`px-5 py-3 flex items-center font-black text-lg ${stage.colorTheme}`}>
-                {Object.entries(ICON_MAP).find(([k]) => k === stage.icon)?.[1] ? React.createElement(ICON_MAP[stage.icon as string], { size: 20, className: "mr-2" }) : <HelpCircle size={20} className="mr-2" />}
-                {stage.title}
+            <div key={stage.stage} className="rounded-2xl border border-[#E4E4E7] bg-white shadow-sm overflow-hidden transition-all hover:border-purple-200">
+              <div className="px-5 py-2.5 bg-[#FAF9F6] border-b border-[#E4E4E7] flex items-center justify-between">
+                <div className="flex items-center font-bold text-sm text-[#3F3F46]">
+                  {Object.entries(ICON_MAP).find(([k]) => k === stage.icon)?.[1] ? React.createElement(ICON_MAP[stage.icon as string], { size: 16, className: "mr-2 text-purple-600" }) : <HelpCircle size={16} className="mr-2" />}
+                  {stage.title}
+                </div>
               </div>
-              <div className="p-5">
+              <div className="p-4">
                 {stage.stage === CallStage.DISCOVERY ? (
-                  <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {(stage.items as NeedQuestion[]).map(q => (
                       <div key={q.id}>
-                        <p className="text-sm font-bold text-slate-400 mb-2">{q.question}</p>
-                        <div className="flex flex-wrap gap-2">
+                        <p className="text-[10px] font-black text-[#A1A1AA] uppercase mb-2 tracking-wider">{q.question}</p>
+                        <div className="flex gap-2">
                           {q.options.map(opt => (
-                            <button key={opt.value} onClick={() => { setNeeds({...needs, [q.id]: opt.value}); setActiveScript(q.scriptHint); addLog(`画像确认: ${opt.label}`); }} className={`px-4 py-2 rounded-xl text-sm font-bold transition-all border-b-2 ${needs[q.id] === opt.value ? 'bg-indigo-600 border-indigo-800 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{opt.label}</button>
+                            <button key={opt.value} onClick={() => { setNeeds({...needs, [q.id]: opt.value}); setActiveScript(q.scriptHint); addLog(`[画像] ${opt.label}`); }} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all border ${needs[q.id] === opt.value ? 'bg-purple-600 border-purple-700 text-white' : 'bg-white border-[#E4E4E7] text-[#71717A] hover:bg-[#F4F4F5]'}`}>{opt.label}</button>
                           ))}
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {(stage.items as ScriptButton[]).map(btn => (
-                      <button key={btn.id} onClick={() => { setActiveScript(btn.content.replace(/{Name}/g, name||'客户')); addLog(btn.logSummary); }} className="group p-4 rounded-2xl bg-white border-2 border-slate-100 hover:border-indigo-400 hover:bg-indigo-50 transition-all text-left shadow-sm">
-                         <span className="font-bold text-slate-700 group-hover:text-indigo-700 text-base mb-1 block">{btn.label}</span>
-                         <span className="text-xs text-slate-400 line-clamp-1">{btn.content}</span>
+                      <button key={btn.id} onClick={() => { setActiveScript(btn.content.replace(/{Name}/g, name||'客户')); addLog(`[动作] ${btn.label}`); }} className="group p-3 rounded-xl bg-white border border-[#E4E4E7] hover:border-purple-300 hover:bg-purple-50/50 transition-all text-left">
+                         <span className="font-bold text-[#3F3F46] group-hover:text-purple-700 text-xs mb-1 block">{btn.label}</span>
+                         <span className="text-[10px] text-[#A1A1AA] line-clamp-1">{btn.content}</span>
                       </button>
                     ))}
                   </div>
@@ -162,106 +149,98 @@ const Copilot: React.FC = () => {
         </div>
       </div>
 
-      {/* 右侧：提词器、结果判定 & AMS 记录生成 */}
-      <div className="w-[420px] flex flex-col gap-4">
+      {/* 右侧：提词器 & AMS 生成 */}
+      <div className="w-[380px] flex flex-col gap-4">
         
-        {/* 提词器 */}
-        <div className="bg-zinc-900 rounded-3xl p-5 text-white shadow-xl min-h-[120px] flex flex-col border border-zinc-800">
-          <div className="flex items-center gap-2 text-zinc-500 font-bold uppercase text-[10px] mb-2 tracking-widest">
-            <Sparkles size={14} className="text-amber-400" /> LIVE PROMPTER
+        {/* 提词器 - 雾白底色带紫边 */}
+        <div className="bg-white rounded-2xl p-5 text-[#3F3F46] shadow-sm flex flex-col border-l-4 border-l-purple-500 border-y border-r border-[#E4E4E7]">
+          <div className="flex items-center gap-2 text-purple-500 font-black uppercase text-[9px] mb-3 tracking-[0.2em]">
+            <Sparkles size={12} /> Live Prompter
           </div>
-          <div className="text-lg font-medium leading-relaxed italic text-zinc-100">"{activeScript}"</div>
+          <div className="text-base font-medium leading-relaxed italic">"{activeScript}"</div>
         </div>
 
-        {/* 重点：通话结果判定 (结案前必选) */}
-        <div className="bg-white rounded-3xl border-2 border-slate-200 p-4 shadow-sm flex flex-col gap-3">
-           <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-             <Calendar size={12} /> 通话最终判定 (核心统计维度)
+        {/* 结果判定 - 使用明快状态色 */}
+        <div className="bg-white rounded-2xl border border-[#E4E4E7] p-4 shadow-sm flex flex-col gap-3">
+           <div className="text-[9px] font-black text-[#A1A1AA] uppercase tracking-[0.2em] flex items-center gap-2">
+             <Calendar size={12} /> 通话结果判定
            </div>
-           <div className="flex gap-2 p-1 bg-slate-50 rounded-2xl border border-slate-100">
+           <div className="flex gap-2 p-1 bg-[#FAF9F6] rounded-xl">
              <button 
-               onClick={() => { setOutcome('APPOINTED'); addLog('[结果判定] 成功预约进店'); }} 
-               className={`flex-1 py-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 ${outcome === 'APPOINTED' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
+               onClick={() => { setOutcome('APPOINTED'); addLog('[判定] 成功预约'); }} 
+               className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${outcome === 'APPOINTED' ? 'bg-[#10B981] text-white shadow-md' : 'text-[#71717A] hover:bg-[#F4F4F5]'}`}
              >
-               {outcome === 'APPOINTED' && <Check size={14} />} 已约大致进店
+               {outcome === 'APPOINTED' && <Check size={14} />} 已约进店
              </button>
              <button 
-               onClick={() => { setOutcome('UNDECIDED'); addLog('[结果判定] 意向不明确/再看看'); }} 
-               className={`flex-1 py-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 ${outcome === 'UNDECIDED' ? 'bg-amber-500 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
+               onClick={() => { setOutcome('UNDECIDED'); addLog('[判定] 待跟进'); }} 
+               className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${outcome === 'UNDECIDED' ? 'bg-[#F59E0B] text-white shadow-md' : 'text-[#71717A] hover:bg-[#F4F4F5]'}`}
              >
-               {outcome === 'UNDECIDED' && <Check size={14} />} 无法确定时间
+               {outcome === 'UNDECIDED' && <Check size={14} />} 再看看
              </button>
            </div>
         </div>
 
-        {/* AMS 系统记录展示区 (移除分段按钮) */}
-        <div className="flex-1 bg-white rounded-3xl border-2 border-slate-200 shadow-sm flex flex-col overflow-hidden">
-           <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+        {/* AMS 记录区 */}
+        <div className="flex-1 bg-white rounded-2xl border border-[#E4E4E7] shadow-sm flex flex-col overflow-hidden">
+           <div className="px-4 py-2.5 bg-[#FAF9F6] border-b border-[#E4E4E7] flex justify-between items-center">
              <div className="flex items-center gap-2">
-               {viewMode === 'AMS' ? (
-                 <button onClick={() => setViewMode('LOG')} className="p-1 hover:bg-slate-200 rounded text-slate-400 transition-colors">
+               {viewMode === 'AMS' && (
+                 <button onClick={() => setViewMode('LOG')} className="p-1 hover:bg-[#F4F4F5] rounded text-[#A1A1AA]">
                    <ChevronLeft size={16} />
                  </button>
-               ) : null}
-               <span className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${viewMode === 'AMS' ? 'text-indigo-600' : 'text-slate-400'}`}>
-                 {viewMode === 'AMS' ? <ClipboardCheck size={16} /> : <History size={16} />}
-                 {viewMode === 'AMS' ? 'AMS 系统标准记录' : '通话实时日志轨迹'}
+               )}
+               <span className="text-[10px] font-black uppercase tracking-widest text-[#71717A] flex items-center gap-1.5">
+                 {viewMode === 'AMS' ? <ClipboardCheck size={14} /> : <History size={14} />}
+                 {viewMode === 'AMS' ? 'AMS Standard' : 'Call Logic'}
                </span>
              </div>
              {viewMode === 'LOG' && (
-               <button onClick={() => { if(confirm('清空当前日志？')) setLogs(''); }} className="text-slate-300 hover:text-red-500 p-1 transition-colors">
-                 <RotateCcw size={14} />
+               <button onClick={() => { if(confirm('清空日志？')) setLogs(''); }} className="text-[#D4D4D8] hover:text-[#EF4444] transition-colors">
+                  <RotateCcw size={12} />
                </button>
              )}
            </div>
 
-           <div className="flex-1 overflow-y-auto p-4 bg-slate-50/20 custom-scrollbar">
+           <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
              {viewMode === 'LOG' ? (
-               <pre className="whitespace-pre-wrap font-mono text-[11px] text-slate-500 leading-relaxed italic">
-                 {logs || '等待拨打记录录入...'}
+               <pre className="whitespace-pre-wrap font-mono text-[10px] text-[#A1A1AA] leading-loose italic">
+                 {logs || '等待记录生成...'}
                  <div ref={logEndRef} />
                </pre>
              ) : (
-               <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                 {/* 三大结构化模块 - 每个都带复制按钮 */}
+               <div className="space-y-4">
                  {[
-                   { id: 'profile', title: '客户画像 (标签)', icon: User, color: 'indigo', val: amsResult?.profile },
-                   { id: 'record', title: '通话总结 (核心异议)', icon: MessageCircle, color: 'emerald', val: amsResult?.record },
-                   { id: 'plan', title: '跟进计划 (下一步动作)', icon: Target, color: 'rose', val: amsResult?.plan }
+                   { id: 'profile', title: '画像', val: amsResult?.profile },
+                   { id: 'record', title: '总结', val: amsResult?.record },
+                   { id: 'plan', title: '计划', val: amsResult?.plan }
                  ].map(card => (
-                   <div key={card.id} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm relative group">
-                      <div className="flex justify-between items-center mb-2">
-                        <h4 className={`text-[10px] font-black text-${card.color}-500 uppercase flex items-center gap-1.5 tracking-widest`}>
-                          <card.icon size={12} /> {card.title}
-                        </h4>
-                        <button 
-                          onClick={() => copyToClipboard(card.val || '', card.id)}
-                          className="p-1.5 rounded-lg bg-slate-50 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
-                          title="一键复制到 AMS"
-                        >
-                          {copiedId === card.id ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                   <div key={card.id} className="bg-white p-3 rounded-xl border border-[#F4F4F5] relative group hover:border-purple-200">
+                      <div className="flex justify-between items-center mb-1.5">
+                        <h4 className="text-[9px] font-black text-[#A1A1AA] uppercase tracking-wider">{card.title}</h4>
+                        <button onClick={() => copyToClipboard(card.val || '', card.id)} className="p-1 text-[#D4D4D8] hover:text-purple-600 transition-all">
+                          {copiedId === card.id ? <Check size={12} /> : <Copy size={12} />}
                         </button>
                       </div>
-                      <p className="text-sm text-slate-700 leading-relaxed font-medium">{card.val}</p>
+                      <p className="text-xs text-[#52525B] leading-relaxed">{card.val}</p>
                    </div>
                  ))}
                </div>
              )}
            </div>
 
-           {/* 核心生成按钮 */}
-           <div className="p-4 bg-white border-t border-slate-100">
+           <div className="p-4 bg-white border-t border-[#F4F4F5]">
              <button 
                onClick={handleGenerateAMS}
                disabled={isGenerating}
-               className={`w-full py-4 rounded-2xl font-black text-sm shadow-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${
+               className={`w-full py-3.5 rounded-xl font-black text-xs tracking-widest uppercase shadow-sm flex items-center justify-center gap-2 transition-all ${
                  isGenerating 
-                  ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
-                  : 'bg-zinc-900 text-white hover:bg-black ring-offset-2 hover:ring-2 ring-zinc-400'
+                  ? 'bg-[#F4F4F5] text-[#D4D4D8]'
+                  : 'bg-purple-600 text-white hover:bg-purple-700 active:scale-[0.98]'
                }`}
              >
-               {isGenerating ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} className="text-amber-400" />}
-               {isGenerating ? 'AI 正在提炼 AMS 记录...' : '一键生成 AMS 记录'}
+               {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} className="text-purple-200" />}
+               一键生成AMS记录
              </button>
            </div>
         </div>

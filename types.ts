@@ -1,6 +1,6 @@
+
 export enum ViewState {
   COPILOT = 'COPILOT',
-  DOJO = 'DOJO',
   DASHBOARD = 'DASHBOARD'
 }
 

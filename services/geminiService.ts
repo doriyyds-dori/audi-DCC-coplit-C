@@ -1,33 +1,12 @@
 
-import { GoogleGenAI, Chat, Type } from "@google/genai";
-import { DOJO_SYSTEM_INSTRUCTION } from '../constants';
+import { GoogleGenAI, Type, Chat } from "@google/genai";
+import { DOJO_SYSTEM_INSTRUCTION } from "../constants";
 
+// Initialize the Google GenAI client with the API key from environment variables
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-let chatSession: Chat | null = null;
-
-export const startDojoSession = async (): Promise<string> => {
-  try {
-    chatSession = ai.chats.create({
-      model: 'gemini-3-pro-preview',
-      config: { systemInstruction: DOJO_SYSTEM_INSTRUCTION, temperature: 0.9 },
-    });
-    const response = await chatSession.sendMessage({ message: "喂？" });
-    return response.text || "喂？";
-  } catch (error) {
-    return "系统错误。";
-  }
-};
-
-export const sendDojoMessage = async (userMessage: string): Promise<string> => {
-  if (!chatSession) return "错误：会话未开始。";
-  try {
-    const response = await chatSession.sendMessage({ message: userMessage });
-    return response.text || "...";
-  } catch (error) {
-    return "通话中断。";
-  }
-};
+// Module-level variable to maintain the state of the active Dojo chat session
+let dojoChat: Chat | null = null;
 
 /**
  * 结构化生成 AMS 记录，全面适配异常与正常通话结果
@@ -82,5 +61,45 @@ export const generateSummaryEnhancement = async (data: any): Promise<{profile: s
       record: "AI 整理失败，请参考操作轨迹日志进行手动整理。",
       plan: "建议尽快补录下一步动作。"
     };
+  }
+};
+
+/**
+ * 初始化 AI 陪练会话 (陈先生角色扮演)
+ */
+export const startDojoSession = async (): Promise<string> => {
+  try {
+    // Use gemini-3-pro-preview for complex reasoning and creative roleplay tasks
+    dojoChat = ai.chats.create({
+      model: 'gemini-3-pro-preview',
+      config: {
+        systemInstruction: DOJO_SYSTEM_INSTRUCTION,
+      },
+    });
+    // Trigger the initial response from the model to start the simulation
+    const response = await dojoChat.sendMessage({ message: "你好，你是陈先生。请开始我们的对话。" });
+    return response.text || "你好。";
+  } catch (error) {
+    console.error("Dojo Session Start Error:", error);
+    return "AI 陪练暂时离线，请重试。";
+  }
+};
+
+/**
+ * 发送用户输入并获取陪练回复
+ */
+export const sendDojoMessage = async (message: string): Promise<string> => {
+  try {
+    // If session doesn't exist, try to start a new one
+    if (!dojoChat) {
+      await startDojoSession();
+    }
+    if (!dojoChat) throw new Error("Failed to initialize chat");
+
+    const response = await dojoChat.sendMessage({ message });
+    return response.text || "我不清楚你在说什么。";
+  } catch (error) {
+    console.error("Dojo Message Error:", error);
+    return "通信失败，请检查连接。";
   }
 };

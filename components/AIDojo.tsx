@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Message } from '../types';
 import { startDojoSession, sendDojoMessage } from '../services/geminiService';
@@ -66,7 +67,7 @@ const AIDojo: React.FC = () => {
             场景：你正在与"陈先生"通话，他是一位45岁的宝马5系车主。
             他对没有四环标的奥迪 E5 持怀疑态度，认为这是"假奥迪"。
             <br/><br/>
-            <strong>目标：</strong> 使用"传承 + 创新"的策略说服他。
+            <strong>目标：</strong> 使用"传承 + 创新"的策略说服 him。
           </p>
           <button 
             onClick={handleStart}
@@ -84,15 +85,15 @@ const AIDojo: React.FC = () => {
     <div className="h-[calc(100vh-100px)] flex gap-6">
       <div className="flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {/* Header */}
-        <div className="bg-slate-800 text-white p-4 flex justify-between items-center">
+        <div className="bg-purple-900 text-white p-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
              <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
              <div>
                <h3 className="font-bold">陈先生 (宝马车主)</h3>
-               <p className="text-xs text-slate-400">场景：品牌异议</p>
+               <p className="text-xs text-purple-300">场景：品牌异议</p>
              </div>
           </div>
-          <button onClick={handleStart} className="p-2 hover:bg-slate-700 rounded-full text-slate-300" title="重新开始">
+          <button onClick={handleStart} className="p-2 hover:bg-purple-800 rounded-full text-purple-100" title="重新开始">
             <RefreshCw size={18} />
           </button>
         </div>
