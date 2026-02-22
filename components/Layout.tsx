@@ -1,67 +1,43 @@
-
 import React from 'react';
 import { ViewState } from '../types';
-import { LayoutDashboard, MessageSquareText, Cpu } from 'lucide-react';
+import { LayoutDashboard, MessageSquareText, Cpu, ShieldCheck } from 'lucide-react';
+import { SessionUser } from '../services/authService';
 
 interface LayoutProps {
   currentView: ViewState;
   onChangeView: (view: ViewState) => void;
   children: React.ReactNode;
+  user: SessionUser;
+  onLogout: () => void;
+  onChangePassword: () => void;
 }
 
-const Layout: React.FC<LayoutProps> = ({ currentView, onChangeView, children }) => {
+const Layout: React.FC<LayoutProps> = ({ currentView, onChangeView, children, user, onLogout, onChangePassword }) => {
   return (
     <div className="min-h-screen flex flex-col bg-[#F5F4F8]">
-      {/* Light Premium Header - Replacing dark background with mist white/white */}
       <header className="bg-white border-b border-[#E4E4E7] h-12 px-6 flex items-center justify-between sticky top-0 z-50">
         <div className="flex items-center gap-8">
-          <div className="font-black text-lg tracking-[0.3em] text-[#18181B]">
-            AUDI
-          </div>
+          <div className="font-black text-lg tracking-[0.3em] text-[#18181B]">AUDI</div>
           <div className="h-4 w-[1px] bg-[#E4E4E7]"></div>
           <div className="flex items-center gap-2 text-[#71717A] text-[10px] font-bold tracking-[0.2em] uppercase">
-            <Cpu size={12} className="text-purple-600/60" />
-            DCC Copilot <span className="text-[#E4E4E7]">|</span> 2.0.4
+            <Cpu size={12} className="text-purple-600/60" />DCC Copilot
           </div>
         </div>
 
         <nav className="flex items-center gap-1 p-1 bg-[#F4F4F5] rounded-lg">
-          <button
-            onClick={() => onChangeView(ViewState.COPILOT)}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-[11px] font-bold transition-all ${
-              currentView === ViewState.COPILOT 
-                ? 'bg-white text-[#18181B] shadow-sm' 
-                : 'text-[#71717A] hover:text-[#18181B]'
-            }`}
-          >
-            <MessageSquareText size={14} />
-            销售辅助
-          </button>
-          <button
-            onClick={() => onChangeView(ViewState.DASHBOARD)}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-[11px] font-bold transition-all ${
-              currentView === ViewState.DASHBOARD 
-                ? 'bg-white text-[#18181B] shadow-sm' 
-                : 'text-[#71717A] hover:text-[#18181B]'
-            }`}
-          >
-            <LayoutDashboard size={14} />
-            数据看板
-          </button>
+          <button onClick={() => onChangeView(ViewState.COPILOT)} className={`px-3 py-1.5 rounded-md text-[11px] font-bold ${currentView === ViewState.COPILOT ? 'bg-white' : ''}`}><MessageSquareText size={14} className="inline mr-1"/>销售辅助</button>
+          <button onClick={() => onChangeView(ViewState.DASHBOARD)} className={`px-3 py-1.5 rounded-md text-[11px] font-bold ${currentView === ViewState.DASHBOARD ? 'bg-white' : ''}`}><LayoutDashboard size={14} className="inline mr-1"/>数据看板</button>
+          {user.role === 'SUPER_ADMIN' && <button onClick={() => onChangeView(ViewState.ADMIN)} className={`px-3 py-1.5 rounded-md text-[11px] font-bold ${currentView === ViewState.ADMIN ? 'bg-white' : ''}`}><ShieldCheck size={14} className="inline mr-1"/>用户管理</button>}
         </nav>
 
-        <div className="flex items-center gap-4">
-           <div className="flex items-center gap-2 px-3 py-1 bg-[#F4F4F5] rounded-full text-[9px] font-mono text-[#71717A] border border-[#E4E4E7]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-pulse"></span>
-              CORE_SYNC
-           </div>
+        <div className="flex items-center gap-2 text-xs">
+          <span>{user.username}</span>
+          <button onClick={onChangePassword} className="px-2 py-1 border rounded">修改密码</button>
+          <button onClick={onLogout} className="px-2 py-1 border rounded">退出</button>
         </div>
       </header>
 
-      {/* Main Content with misty background */}
-      <main className="flex-1 overflow-hidden">
-        {children}
-      </main>
+      <main className="flex-1 overflow-hidden">{children}</main>
     </div>
   );
 };

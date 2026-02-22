@@ -1,5 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
+import { SessionUser } from '../services/authService';
+import { appendBehaviorRecord, createBehaviorRecord, recordActionEvent } from '../services/behaviorLogService';
 import { CALL_FLOW_CONFIG as INITIAL_FLOW, CAR_SERIES, ABNORMAL_SCENARIOS, CallOutcome, QUICK_RESPONSES as INITIAL_QUICK } from '../constants';
 import { CallStage, ScriptButton, NeedQuestion } from '../types';
 import { generateSummaryEnhancement } from '../services/geminiService';
@@ -14,7 +16,11 @@ const ICON_MAP: Record<string, any> = {
   'Smile': Smile, 'Search': Search, 'Zap': Zap, 'CalendarCheck': CalendarCheck, 'HelpCircle': HelpCircle
 };
 
-const Copilot: React.FC = () => {
+interface CopilotProps {
+  currentUser: SessionUser;
+}
+
+const Copilot: React.FC<CopilotProps> = ({ currentUser }) => {
   // --- 状态管理 ---
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
@@ -27,6 +33,10 @@ const Copilot: React.FC = () => {
   const [viewMode, setViewMode] = useState<'LOG' | 'AMS' | 'CONFIG'>('LOG');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<CallOutcome>('UNDECIDED');
+  const [sessionId] = useState(() => crypto.randomUUID());
+  const [buttonStats, setButtonStats] = useState<Record<string, number>>({});
+  const [buttonLabelStats, setButtonLabelStats] = useState<Record<string, number>>({});
+  const [events, setEvents] = useState<Array<{ ts: string; action_key: string; action_label: string; action_group: string; meta?: Record<string, any> }>>([]);
   
   const [dynamicFlow, setDynamicFlow] = useState(() => {
     const saved = localStorage.getItem('audi_copilot_flow');
@@ -125,6 +135,12 @@ const Copilot: React.FC = () => {
     }
   };
 
+
+  const makeSemanticId = (prefix: string, group: string, label: string, index: number) => {
+    const slug = `${group}_${label}`.toLowerCase().replace(/[^a-z0-9一-鿿]+/g, '_').replace(/^_+|_+$/g, '');
+    return `${prefix}_${slug || 'item'}_${index}`;
+  };
+
   const parseAndApplyCSV = (content: string, silent: boolean = false) => {
     if (!content.trim()) return;
     try {
@@ -173,7 +189,7 @@ const Copilot: React.FC = () => {
 
         if (isQuick) {
           newQuick.push({
-            id: `csv_q_${index}`,
+            id: makeSemanticId('quick', category || groupId || 'quick', title || 'item', index),
             category: category || groupId, // Use category if provided, else fallback to groupId
             question: title,
             answer: scriptText,
@@ -192,7 +208,7 @@ const Copilot: React.FC = () => {
 
           if (stageIdx > -1) {
             updatedFlow[stageIdx].items.push({
-              id: `csv_s_${index}`,
+              id: makeSemanticId('script', targetStage || 'stage', title || 'item', index),
               label: title,
               content: scriptText,
               category: category,
@@ -246,6 +262,14 @@ const Copilot: React.FC = () => {
   };
 
   const handleStepClick = (stageIdx: number, item: any, isFeedback: boolean = false) => {
+    const actionKey = item.id || `action_${stageIdx}_${(item.label || item.question || 'unknown').replace(/\s+/g, '_')}`;
+    const actionLabel = item.label || item.question || '未命名动作';
+    const actionGroup = dynamicFlow[stageIdx]?.stage || (isFeedback ? 'FEEDBACK' : 'UNKNOWN');
+    setButtonStats(prev => ({ ...prev, [actionKey]: (prev[actionKey] || 0) + 1 }));
+    setButtonLabelStats(prev => ({ ...prev, [actionLabel]: (prev[actionLabel] || 0) + 1 }));
+    const event = { ts: new Date().toISOString(), action_key: actionKey, action_label: actionLabel, action_group: actionGroup, meta: { isFeedback } };
+    setEvents(prev => [...prev, event]);
+    recordActionEvent({ ...event, sessionId, username: currentUser.username }, { action_key: actionKey, action_label: actionLabel, action_group: actionGroup, stage: actionGroup, car_model: series });
     setCurrentStageIdx(stageIdx);
     if (isFeedback) {
       addLog(`[反馈] ${item.label || item.question}`);
@@ -258,8 +282,11 @@ const Copilot: React.FC = () => {
         }
       }
     } else {
-      setActiveScript(item.content.replace(/{Name}/g, name || '客户'));
-      addLog(`[使用话术] ${item.label}`);
+      const scriptText = (item.content || item.scriptHint || '').replace(/{Name}/g, name || '客户');
+      if (scriptText) {
+        setActiveScript(scriptText);
+      }
+      addLog(`[使用话术] ${item.label || item.question || '需求摸底'}`);
     }
   };
 
@@ -268,9 +295,33 @@ const Copilot: React.FC = () => {
     if (!phone.trim()) { alert('请输入客户电话'); return; }
     setIsGenerating(true);
     try {
-      const result = await generateSummaryEnhancement({ phone, name, gender, series, needs, logs, outcome });
+      const result = await generateSummaryEnhancement({
+        sessionId,
+        customer: {
+          phone,
+          name,
+          gender,
+          series,
+          needs,
+          role: currentUser.position,
+          storeCode: currentUser.storeCode,
+        },
+        context: { outcome, logs },
+        events,
+      });
       setAmsResult(result);
       setViewMode('AMS');
+      const summaryText = `${result.profile} | ${result.record} | ${result.plan}`.slice(0, 180);
+      const behavior = createBehaviorRecord(currentUser, {
+        sessionId,
+        carModel: series,
+        summary: summaryText,
+        resultLength: summaryText.length,
+        actionStatsKey: buttonStats,
+        actionStatsLabel: buttonLabelStats,
+      });
+      await appendBehaviorRecord(behavior);
+      addLog(`[行为] AMS记录已写入 session=${sessionId}`);
     } catch (err) { alert('生成失败'); } finally { setIsGenerating(false); }
   };
 
@@ -392,17 +443,17 @@ const Copilot: React.FC = () => {
                 </div>
                 <div className="p-5">
                   {(() => {
-                    const isDiscoveryWithQuestions = stage.stage === CallStage.DISCOVERY && stage.items.length > 0 && 'options' in stage.items[0];
+                    const isDiscoveryWithQuestions = stage.stage === CallStage.DISCOVERY && stage.items.some((it: any) => 'options' in it);
                     if (isDiscoveryWithQuestions) {
                       return (
                         <div className="space-y-4">
-                          {(stage.items as NeedQuestion[]).map(q => (
+                          {(stage.items as NeedQuestion[]).filter((q: any) => 'options' in q).map(q => (
                             <div key={q.id} className="bg-[#FAF9F6] p-4 rounded-xl border border-[#E4E4E7]/50">
                               <p className="text-xs font-bold text-[#3F3F46] mb-3 flex items-center gap-2">
                                  <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span> 询问反馈：{q.question}
                               </p>
                               <div className="flex flex-wrap gap-2">
-                                {q.options.map(opt => (
+                                {(q.options || []).map(opt => (
                                   <button 
                                     key={opt.value} 
                                     onClick={() => {
@@ -446,10 +497,10 @@ const Copilot: React.FC = () => {
                             <button 
                               key={btn.id} 
                               onClick={() => handleStepClick(sIdx, btn)} 
-                              className={`group p-4 rounded-xl text-left transition-all border ${activeScript.includes(btn.content.substring(0,8)) ? 'bg-purple-50 border-purple-300 ring-2 ring-purple-100' : 'bg-white border-[#E4E4E7] hover:bg-[#F4F4F5]'}`}
+                              className={`group p-4 rounded-xl text-left transition-all border ${activeScript.includes((btn.content || (btn as any).scriptHint || '').substring(0,8)) ? 'bg-purple-50 border-purple-300 ring-2 ring-purple-100' : 'bg-white border-[#E4E4E7] hover:bg-[#F4F4F5]'}`}
                             >
-                               <div className="font-bold text-[#3F3F46] text-xs mb-1 truncate">{btn.label}</div>
-                               <div className="text-[10px] text-[#A1A1AA] line-clamp-2 italic">"{btn.content}"</div>
+                               <div className="font-bold text-[#3F3F46] text-xs mb-1 truncate">{btn.label || (btn as any).question || '需求项'}</div>
+                               <div className="text-[10px] text-[#A1A1AA] line-clamp-2 italic">"{btn.content || (btn as any).scriptHint || ''}"</div>
                             </button>
                           ))}
                         </div>

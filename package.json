@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "lint": "tsc --noEmit",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "server": "node server/index.mjs",
+    "test:ams": "node scripts/verify-ams.mjs"
   },
   "dependencies": {
     "@google/genai": "^1.38.0",
