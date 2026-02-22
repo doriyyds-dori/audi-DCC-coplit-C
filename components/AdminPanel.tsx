@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { downloadCSV, exportUsersCSV, getAllUsers, importUsersFromCSV, validateUtf8File } from '../services/authService';
-import { exportBehaviorCSV, getBehaviorPath, setBehaviorPath } from '../services/behaviorLogService';
+import { exportActionDictionaryCSV, exportBehaviorCSV, exportBehaviorEventsCSV, getBehaviorPath, setBehaviorPath } from '../services/behaviorLogService';
 
 const AdminPanel: React.FC = () => {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -31,7 +31,9 @@ const AdminPanel: React.FC = () => {
         <div className="font-semibold">账号导出</div>
         <div className="flex gap-2">
           <button className="px-3 py-2 border rounded" onClick={() => downloadCSV('all_users_latest.csv', exportUsersCSV())}>导出最新用户名与密码</button>
-          <button className="px-3 py-2 border rounded" onClick={() => downloadCSV('ams_behavior.csv', exportBehaviorCSV())}>导出行为数据</button>
+          <button className="px-3 py-2 border rounded" onClick={() => downloadCSV('ams_behavior_summary.csv', exportBehaviorCSV())}>导出行为汇总</button>
+          <button className="px-3 py-2 border rounded" onClick={() => downloadCSV('ams_behavior_events.csv', exportBehaviorEventsCSV())}>导出事件明细</button>
+          <button className="px-3 py-2 border rounded" onClick={() => downloadCSV('action_dictionary.csv', exportActionDictionaryCSV())}>导出按钮字典</button>
         </div>
         <p className="text-xs text-gray-500">当前用户总数：{getAllUsers().length}</p>
       </div>
