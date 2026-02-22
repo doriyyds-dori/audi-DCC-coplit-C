@@ -1,5 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
+import { SessionUser } from '../services/authService';
+import { appendBehaviorRecord, createBehaviorRecord } from '../services/behaviorLogService';
 import { CALL_FLOW_CONFIG as INITIAL_FLOW, CAR_SERIES, ABNORMAL_SCENARIOS, CallOutcome, QUICK_RESPONSES as INITIAL_QUICK } from '../constants';
 import { CallStage, ScriptButton, NeedQuestion } from '../types';
 import { generateSummaryEnhancement } from '../services/geminiService';
@@ -14,7 +16,11 @@ const ICON_MAP: Record<string, any> = {
   'Smile': Smile, 'Search': Search, 'Zap': Zap, 'CalendarCheck': CalendarCheck, 'HelpCircle': HelpCircle
 };
 
-const Copilot: React.FC = () => {
+interface CopilotProps {
+  currentUser: SessionUser;
+}
+
+const Copilot: React.FC<CopilotProps> = ({ currentUser }) => {
   // --- 状态管理 ---
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
@@ -27,6 +33,8 @@ const Copilot: React.FC = () => {
   const [viewMode, setViewMode] = useState<'LOG' | 'AMS' | 'CONFIG'>('LOG');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<CallOutcome>('UNDECIDED');
+  const [sessionId] = useState(() => crypto.randomUUID());
+  const [buttonStats, setButtonStats] = useState<Record<string, number>>({});
   
   const [dynamicFlow, setDynamicFlow] = useState(() => {
     const saved = localStorage.getItem('audi_copilot_flow');
@@ -246,6 +254,8 @@ const Copilot: React.FC = () => {
   };
 
   const handleStepClick = (stageIdx: number, item: any, isFeedback: boolean = false) => {
+    const key = item.id || item.label || item.question || 'unknown';
+    setButtonStats(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
     setCurrentStageIdx(stageIdx);
     if (isFeedback) {
       addLog(`[反馈] ${item.label || item.question}`);
@@ -271,6 +281,16 @@ const Copilot: React.FC = () => {
       const result = await generateSummaryEnhancement({ phone, name, gender, series, needs, logs, outcome });
       setAmsResult(result);
       setViewMode('AMS');
+      const summaryText = `${result.profile} | ${result.record} | ${result.plan}`.slice(0, 180);
+      const behavior = createBehaviorRecord(currentUser, {
+        sessionId,
+        carModel: series,
+        summary: summaryText,
+        resultLength: summaryText.length,
+        buttonStats,
+      });
+      await appendBehaviorRecord(behavior);
+      addLog(`[行为] AMS记录已写入 session=${sessionId}`);
     } catch (err) { alert('生成失败'); } finally { setIsGenerating(false); }
   };
 
