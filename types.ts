@@ -1,7 +1,8 @@
 
 export enum ViewState {
   COPILOT = 'COPILOT',
-  DASHBOARD = 'DASHBOARD'
+  DASHBOARD = 'DASHBOARD',
+  ADMIN = 'ADMIN'
 }
 
 // 话术流的阶段定义
