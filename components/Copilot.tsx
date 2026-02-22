@@ -282,8 +282,11 @@ const Copilot: React.FC<CopilotProps> = ({ currentUser }) => {
         }
       }
     } else {
-      setActiveScript(item.content.replace(/{Name}/g, name || '客户'));
-      addLog(`[使用话术] ${item.label}`);
+      const scriptText = (item.content || item.scriptHint || '').replace(/{Name}/g, name || '客户');
+      if (scriptText) {
+        setActiveScript(scriptText);
+      }
+      addLog(`[使用话术] ${item.label || item.question || '需求摸底'}`);
     }
   };
 
